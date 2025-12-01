@@ -3,12 +3,20 @@ import { Inter, Source_Code_Pro } from "next/font/google";
 import { SafeArea } from "@coinbase/onchainkit/minikit";
 import { minikitConfig } from "../minikit.config";
 import { RootProvider } from "./rootProvider";
+import { FloatingBanner } from "./components/branding/floating-banner";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: minikitConfig.miniapp.name,
     description: minikitConfig.miniapp.description,
+    openGraph: {
+      title: minikitConfig.miniapp.ogTitle || minikitConfig.miniapp.name,
+      description:
+        minikitConfig.miniapp.ogDescription ||
+        minikitConfig.miniapp.description,
+      images: [minikitConfig.miniapp.ogImageUrl],
+    },
     other: {
       "fc:frame": JSON.stringify({
         version: minikitConfig.miniapp.version,
@@ -45,6 +53,8 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${inter.variable} ${sourceCodePro.variable}`}>
           <SafeArea>{children}</SafeArea>
+          {/* REQUIRED: Vibe3 attribution banner - DO NOT REMOVE */}
+          <FloatingBanner />
         </body>
       </html>
     </RootProvider>
