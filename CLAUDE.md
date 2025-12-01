@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Farcaster MiniApp template built with Next.js 15, OnchainKit, and the Farcaster SDK. It serves as a blank dApp template for building Web3 applications that can be published to the Base app and Farcaster ecosystem.
+This is a Farcaster MiniApp template built with Next.js 16, OnchainKit, and the Farcaster SDK. It serves as a blank dApp template for building Web3 applications that can be published to the Base app and Farcaster ecosystem.
 
-**Key Technologies:**x
+**Key Technologies:**
 
-- Next.js 15.3.4 (App Router)
+- Next.js 16.0.1 (App Router)
 - OnchainKit (Coinbase's Web3 toolkit)
 - Farcaster MiniApp SDK
 - Wagmi & Viem for Web3 interactions
@@ -104,7 +104,7 @@ NEXT_PUBLIC_URL=<production-url>  # Leave empty for local dev
 - **MiniKit Externals:**
   - Externalizes `pino-pretty`, `lokijs`, `encoding` packages
   - Required for proper Web3 library compatibility
-- **Usage:** All dev/build commands use `--webpack` flag explicitly
+- **Usage:** All dev/build commands use `--webpack` flag explicitly (requires Next.js 16+)
 
 **`tsconfig.json`:**
 
