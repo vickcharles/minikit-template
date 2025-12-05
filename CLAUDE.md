@@ -18,7 +18,7 @@ This is a Farcaster MiniApp template built with Next.js 16, OnchainKit, and the 
 ## Development Commands
 
 ```bash
-# Install dependencies
+# Install dependencies (use npm only - not yarn, pnpm, or bun)
 npm install
 
 # Run development server (localhost:3000)
@@ -35,6 +35,8 @@ npm start
 # Lint code
 npm run lint
 ```
+
+**Package Manager:** This template uses npm exclusively. Do not use other package managers (yarn, pnpm, bun) as they may result in different dependency resolutions. All dependencies are pinned to exact versions for reproducibility.
 
 ## Environment Variables
 
@@ -109,7 +111,7 @@ NEXT_PUBLIC_URL=<production-url>  # Leave empty for local dev
 **`tsconfig.json`:**
 
 - Path alias: `@/*` maps to project root
-- Target: ES2017 (required for Farcaster SDK compatibility)
+- Target: ES2020 (required for BigInt literal support in Web3 development)
 - Uses Next.js TypeScript plugin
 
 ## Deployment Workflow
@@ -191,8 +193,281 @@ To publish your MiniApp to Farcaster:
 2. Create a post in the Base app containing your app's URL
 3. The app will be embedded as a frame with launch button
 
+## Adding OnchainKit Components
+
+### Component Usage Guidelines
+
+All OnchainKit components that use React hooks or state MUST be used in client components. Add `"use client"` directive at the top of any file using these components.
+
+### Available Component Imports
+
+OnchainKit 1.0.2 provides modular imports organized by feature:
+
+```typescript
+// Wallet components - connection, dropdown, management
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownBasename,
+  WalletDropdownDisconnect,
+  WalletDropdownFundLink,
+  WalletDropdownLink,
+} from '@coinbase/onchainkit/wallet';
+
+// Identity components - address, ENS names, avatars, balances
+import {
+  Address,
+  Avatar,
+  Name,
+  Identity,
+  EthBalance,
+} from '@coinbase/onchainkit/identity';
+
+// Transaction components - send tokens, contract interactions
+import {
+  Transaction,
+  TransactionButton,
+  TransactionSponsor,
+  TransactionStatus,
+  TransactionStatusAction,
+  TransactionStatusLabel,
+} from '@coinbase/onchainkit/transaction';
+
+// Swap components - token swaps
+import {
+  Swap,
+  SwapAmountInput,
+  SwapToggleButton,
+  SwapButton,
+  SwapMessage,
+} from '@coinbase/onchainkit/swap';
+
+// MiniKit components - Farcaster-specific features
+import {
+  SafeArea,
+  useComposeCast,
+  withValidManifest,
+} from '@coinbase/onchainkit/minikit';
+```
+
+### Wallet Connection Example
+
+See `app/examples/page.tsx` for a complete working example. Basic usage:
+
+```typescript
+"use client";
+
+import {
+  ConnectWallet,
+  Wallet,
+  WalletDropdown,
+  WalletDropdownDisconnect,
+} from '@coinbase/onchainkit/wallet';
+import { Avatar, Name, Identity, Address } from '@coinbase/onchainkit/identity';
+
+export function WalletButton() {
+  return (
+    <Wallet>
+      <ConnectWallet>
+        <Avatar className="h-6 w-6" />
+        <Name />
+      </ConnectWallet>
+      <WalletDropdown>
+        <Identity className="px-4 pt-3 pb-2" hasCopyAddressOnClick>
+          <Avatar />
+          <Name />
+          <Address />
+        </Identity>
+        <WalletDropdownDisconnect />
+      </WalletDropdown>
+    </Wallet>
+  );
+}
+```
+
+### Reading Contract Data
+
+Use wagmi's `useReadContract` hook for reading blockchain data:
+
+```typescript
+"use client";
+
+import { useReadContract } from 'wagmi';
+import { parseAbi } from 'viem';
+import { useAccount } from 'wagmi';
+
+const contractAbi = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+]);
+
+export function ContractReader() {
+  const { address } = useAccount();
+
+  const { data, isLoading, error } = useReadContract({
+    address: '0x...', // Contract address
+    abi: contractAbi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return <div>Balance: {data?.toString()}</div>;
+}
+```
+
+### Writing to Contracts
+
+Use wagmi's `useWriteContract` hook for sending transactions:
+
+```typescript
+"use client";
+
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseAbi } from 'viem';
+
+const contractAbi = parseAbi([
+  'function transfer(address to, uint256 amount) returns (bool)',
+]);
+
+export function ContractWriter() {
+  const {
+    data: hash,
+    writeContract,
+    isPending
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } =
+    useWaitForTransactionReceipt({ hash });
+
+  const handleTransfer = () => {
+    writeContract({
+      address: '0x...', // Contract address
+      abi: contractAbi,
+      functionName: 'transfer',
+      args: ['0x...recipient', 1000000n], // Use BigInt for amounts
+    });
+  };
+
+  return (
+    <div>
+      <button
+        onClick={handleTransfer}
+        disabled={isPending || isConfirming}
+      >
+        {isPending ? 'Sending...' :
+         isConfirming ? 'Confirming...' :
+         'Transfer'}
+      </button>
+      {isSuccess && <div>Transaction successful!</div>}
+    </div>
+  );
+}
+```
+
+### Working with BigInt Values
+
+Ethereum values are returned as BigInt. Convert for display:
+
+```typescript
+// ETH (18 decimals)
+const ethAmount = Number(weiValue) / 1e18;
+
+// USDC (6 decimals)
+const usdcAmount = Number(usdcValue) / 1e6;
+
+// When sending amounts, use BigInt:
+const amount = 1000000n; // 1 USDC (6 decimals)
+const ethAmount = parseEther('0.1'); // Use viem's parseEther for ETH
+```
+
+### Client vs Server Components
+
+**Client Components (require `"use client"`)**:
+- Components using OnchainKit UI components
+- Components using wagmi hooks (`useAccount`, `useReadContract`, etc.)
+- Components using React hooks (`useState`, `useEffect`, etc.)
+- Event handlers and interactive elements
+
+**Server Components (default)**:
+- Static layouts
+- Metadata generation
+- API route handlers
+- Data fetching without interactivity
+
+## Troubleshooting
+
+### Common Errors and Solutions
+
+#### "Module not found" for OnchainKit imports
+
+**Error:** `Module not found: Can't resolve '@coinbase/onchainkit/wallet'`
+
+**Solution:**
+1. Verify you're using OnchainKit 1.0.2 (check `package.json`)
+2. Ensure imports match the version's API (see component imports above)
+3. Run `npm install` to ensure dependencies are installed
+4. Check that you're importing from the correct path (e.g., `/wallet`, `/identity`)
+
+#### "React hooks" error in Server Component
+
+**Error:** `Error: You're importing a component that needs [hook]. This only works in a Client Component`
+
+**Solution:** Add `"use client"` directive at the top of your file:
+
+```typescript
+"use client";
+
+import { useAccount } from 'wagmi';
+// ... rest of your component
+```
+
+#### TypeScript errors with React types
+
+**Error:** `Type 'ReactNode' is not assignable to type 'ReactNode'`
+
+**Solution:** This template uses React 19.1.1. If you see this error:
+1. Ensure `react` and `react-dom` are both version `19.1.1` in `package.json`
+2. Delete `node_modules` and `package-lock.json`
+3. Run `npm install` (not other package managers)
+4. The error usually comes from mixing React versions
+
+#### Build fails with "use client" directive errors
+
+**Error:** Build fails or components don't work as expected with client directive
+
+**Solution:**
+1. Ensure `"use client"` is the FIRST line in the file (before imports)
+2. Check that all files using wagmi/OnchainKit hooks have the directive
+3. Verify you're not trying to use client hooks in `layout.tsx` or server components
+
+#### Peer dependency warnings
+
+**Warning:** `npm WARN peer dependency...use-sync-external-store...React 19`
+
+**Solution:** You can safely ignore these warnings. The template uses React 19.1.1 and is fully functional. These warnings appear because some deep dependencies haven't updated their peer dependency declarations yet, but React 19 maintains backward compatibility.
+
+### Debugging Tips
+
+1. **Check versions:** Run `npm ls react @coinbase/onchainkit` to verify installed versions
+2. **Clean install:** Delete `node_modules` and `package-lock.json`, then `npm install`
+3. **Build locally:** Run `npm run build` to catch errors before deploying
+4. **Check browser console:** Many runtime errors appear in browser DevTools
+5. **Verify wallet connection:** Use `useAccount()` hook to check connection state
+
+### Getting Help
+
+- **OnchainKit Docs:** https://onchainkit.xyz
+- **Wagmi Docs:** https://wagmi.sh
+- **Viem Docs:** https://viem.sh
+- **Next.js App Router:** https://nextjs.org/docs/app
+
 ## Documentation References
 
 - Farcaster MiniApp Spec: https://miniapps.farcaster.xyz/docs/guides/publishing
 - OnchainKit Docs: https://onchainkit.xyz
 - Base MiniApp Tutorial: https://docs.base.org/docs/mini-apps/quickstart/create-new-miniapp/
+- Wagmi Documentation: https://wagmi.sh
+- Viem Documentation: https://viem.sh
