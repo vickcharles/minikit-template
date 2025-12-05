@@ -1,0 +1,11 @@
+# Bun configuration for the Farcaster MiniApp template
+# https://bun.sh/docs/runtime/bunfig
+
+[install]
+# Prefer offline cache for faster installs
+prefer = "offline"
+
+[install.lockfile]
+# Save lockfile (bun.lockb) for consistent installs
+save = true
+print = "yarn"
